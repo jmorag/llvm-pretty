@@ -6,6 +6,7 @@ Maintainer  : Langston Barrett
 Stability   : experimental
 -}
 
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE StrictData #-}
@@ -21,6 +22,7 @@ module Text.LLVM.Triple.AST
   ) where
 
 import Data.Data (Data)
+import Data.Hashable (Hashable)
 import GHC.Generics (Generic)
 
 -- | The constructors of this type exactly mirror the LLVM @enum ArchType@,
@@ -149,7 +151,7 @@ data Arch
   | RenderScript64
     -- | NEC SX-Aurora Vector Engine
   | VE
-  deriving (Bounded, Data, Eq, Enum, Generic, Ord, Read, Show)
+  deriving (Bounded, Data, Eq, Enum, Generic, Ord, Read, Show, Hashable)
 
 -- | A 'First'-like semigroup instance that simply drops the RHS, unless the LHS
 -- is 'UnknownArch'.
@@ -215,7 +217,7 @@ data SubArch
   | SPIRVSubArch_v13
   | SPIRVSubArch_v14
   | SPIRVSubArch_v15
-  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show)
+  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show, Hashable)
 
 -- | A 'First'-like semigroup instance that simply drops the RHS, unless the LHS
 -- is 'NoSubArch'.
@@ -249,7 +251,7 @@ data Vendor
   | Mesa
   | SUSE
   | OpenEmbedded
-  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show)
+  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show, Hashable)
 
 -- | A 'First'-like semigroup instance that simply drops the RHS, unless the LHS
 -- is 'UnknownVendor'.
@@ -322,7 +324,7 @@ data OS
   | Emscripten
     -- | DirectX ShaderModel
   | ShaderModel
-  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show)
+  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show, Hashable)
 
 -- | A 'First'-like semigroup instance that simply drops the RHS, unless the LHS
 -- is 'UnknownOS'.
@@ -385,7 +387,7 @@ data Environment
   | Callable
   | Mesh
   | Amplification
-  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show)
+  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show, Hashable)
 
 -- | A 'First'-like semigroup instance that simply drops the RHS, unless the LHS
 -- is 'UnknownEnvironment'.
@@ -413,7 +415,7 @@ data ObjectFormat
   | SPIRV
   | Wasm
   | XCOFF
-  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show)
+  deriving (Bounded, Data, Enum, Eq, Generic, Ord, Read, Show, Hashable)
 
 -- | A 'First'-like semigroup instance that simply drops the RHS, unless the LHS
 -- is 'UnknownObjectFormat'.
@@ -439,7 +441,7 @@ data TargetTriple
     , ttEnv :: Environment
     , ttObjFmt :: ObjectFormat
     }
-  deriving (Bounded, Data, Eq, Generic, Ord, Read, Show)
+  deriving (Bounded, Data, Eq, Generic, Ord, Read, Show, Hashable)
 
 -- | Combines fields pointwise.
 instance Semigroup TargetTriple where
