@@ -33,8 +33,7 @@ module Text.LLVM.Triple.Parse
 
 import qualified Data.List as List
 
-import qualified MonadLib as M
-import qualified MonadLib.Monads as M
+import qualified Control.Monad.Trans.State.Lazy as M
 
 import Text.LLVM.Triple.AST
 import qualified Text.LLVM.Triple.Print as Print
@@ -254,9 +253,9 @@ defaultObjFmt _tt = UnknownObjectFormat
 -- https://github.com/llvm/llvm-project/blob/llvmorg-15.0.1/llvm/lib/Support/Triple.cpp#L869
 parseTriple :: String -> TargetTriple
 parseTriple str =
-  execState (split '-' str) $ do
+  flip M.evalState (split '-' str) $ do
     let pop def f =
-          M.sets $
+          M.state $
             \case
               (hd:rest) -> (f hd, rest)
               [] -> (def, [])
@@ -289,6 +288,3 @@ parseTriple str =
       where
         push c [] = [[c]]
         push c (s:strs) = (c:s):strs
-
-    -- Not in MonadLib...
-    execState s = fst . M.runState s

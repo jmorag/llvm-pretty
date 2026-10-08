@@ -109,13 +109,19 @@ module Text.LLVM (
 
 import Text.LLVM.AST
 
+import Control.Applicative
+import Control.Monad
 import Control.Monad.Fix (MonadFix)
+import Control.Monad.Trans.Class
+import Control.Monad.Reader
+import Control.Monad.State.Lazy
+import Control.Monad.Writer.Strict
 import Data.Char (ord)
+import Data.Functor.Identity
 import Data.Int (Int8,Int16,Int32,Int64)
 import Data.Word (Word32, Word64)
 import Data.Maybe (maybeToList)
 import Data.String (IsString(..))
-import MonadLib hiding (jump,Label)
 import qualified Data.Foldable as F
 import qualified Data.Sequence as Seq
 import qualified Data.Map.Strict as Map
@@ -146,12 +152,21 @@ nextName pfx ns =
 
 newtype LLVMT m a = LLVM
   { unLLVM :: WriterT ModuleBuilder (StateT Names m) a
-  } deriving (Functor,Applicative,Monad,MonadFix)
+  }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadFix
+    , MonadState Names
+    , MonadWriter ModuleBuilder
+    , MonadIO
+    )
 
-instance MonadT LLVMT where
+instance MonadTrans LLVMT where
   lift = LLVM . lift . lift
 
-type LLVM = LLVMT Id
+type LLVM = LLVMT Identity
 
 -- | This is an internal object used to provide the Monoid/Semigroup building
 -- context for the WriterT.  There is no Semigroup instance for Module itself,
@@ -166,7 +181,7 @@ newtype ModuleBuilder = ModuleBuilder { getModule :: Module }
 
 instance Semigroup ModuleBuilder where
   (ModuleBuilder m1) <> (ModuleBuilder m2) = ModuleBuilder $ Module
-    { modSourceName = modSourceName m1 `mplus` modSourceName m2
+    { modSourceName = modSourceName m1 <|> modSourceName m2
     , modTriple = modTriple m1 <> modTriple m2
     , modDataLayout = modDataLayout m1 <> modDataLayout m2
     , modTypes = modTypes m1 <> modTypes m2
@@ -188,31 +203,31 @@ freshNameLLVM :: (Monad m) => String -> LLVMT m String
 freshNameLLVM pfx = LLVM $ do
   ns <- get
   let (n,ns') = nextName pfx ns
-  set ns'
+  put ns'
   return n
 
 runLLVM :: LLVM a -> (a,Module)
-runLLVM  = runId . runLLVMT
+runLLVM  = runIdentity . runLLVMT
 
 runLLVMT :: (Monad m) => LLVMT m a -> m (a, Module)
-runLLVMT = fmap (fmap getModule . fst) . runStateT Map.empty . runWriterT . unLLVM
+runLLVMT = fmap (fmap getModule . fst) . flip runStateT Map.empty . runWriterT . unLLVM
 
 emitTypeDecl :: (Monad m) => TypeDecl -> LLVMT m ()
-emitTypeDecl td = LLVM (put $ ModuleBuilder $ emptyModule { modTypes = [td] })
+emitTypeDecl td = LLVM (tell $ ModuleBuilder $ emptyModule { modTypes = [td] })
 
 emitGlobal :: (Monad m) => Global -> LLVMT m (Typed Value)
 emitGlobal g =
-  do LLVM (put $ ModuleBuilder $ emptyModule { modGlobals = [g] })
+  do LLVM (tell $ ModuleBuilder $ emptyModule { modGlobals = [g] })
      return (ptrT (globalType g) -: globalSym g)
 
 emitDefine :: (Monad m) => Define -> LLVMT m (Typed Value)
 emitDefine d =
-  do LLVM (put $ ModuleBuilder $ emptyModule { modDefines = [d] })
+  do LLVM (tell $ ModuleBuilder $ emptyModule { modDefines = [d] })
      return (defFunType d -: defName d)
 
 emitDeclare :: (Monad m) => Declare -> LLVMT m (Typed Value)
 emitDeclare d =
-  do LLVM (put $ ModuleBuilder $ emptyModule { modDeclares = [d] })
+  do LLVM (tell $ ModuleBuilder $ emptyModule { modDeclares = [d] })
      return (decFunType d -: decName d)
 
 alias :: (Monad m) => Ident -> Type -> LLVMT m ()
@@ -360,12 +375,21 @@ define' attrs rty sym sig va k = do
 
 newtype BBT m a = BB
   { unBB :: ReaderT (Stmt -> Stmt) (WriterT [BasicBlock] (StateT RW m)) a
-  } deriving (Functor,Applicative,Monad,MonadFix)
+  } deriving
+  ( Functor
+  , Applicative
+  , Monad
+  , MonadFix
+  , MonadReader (Stmt -> Stmt)
+  , MonadState RW
+  , MonadWriter [BasicBlock]
+  , MonadIO
+  )
 
-instance MonadT BBT where
+instance MonadTrans BBT where
   lift = BB . lift . lift . lift
 
-type BB = BBT Id
+type BB = BBT Identity
 
 -- | The 'bbStmtModifier' function can be used to register a function that can
 -- modify the subsequent statements generated into this block.
@@ -391,30 +415,30 @@ type BB = BBT Id
 -- respectively.
 
 bbStmtModifier :: (Monad m) => (Stmt -> Stmt) -> BBT m a -> BBT m a
-bbStmtModifier stmtModifier = BB . local stmtModifier . unBB
+bbStmtModifier stmtModifier = BB . local (const stmtModifier) . unBB
 
 avoidName :: (Monad m) => String -> BBT m ()
 avoidName name = BB $ do
   rw <- get
   case avoid name (rwNames rw) of
-    Just ns' -> set rw { rwNames = ns' }
+    Just ns' -> put rw { rwNames = ns' }
     Nothing  -> error ("avoidName: " ++ name ++ " already registered")
 
 freshNameBB :: (Monad m) => String -> BBT m String
 freshNameBB pfx = BB $ do
   rw <- get
   let (n,ns') = nextName pfx (rwNames rw)
-  set rw { rwNames = ns' }
+  put rw { rwNames = ns' }
   return n
 
 runBB :: BB a -> (a,[BasicBlock])
-runBB = runId . runBBT
+runBB = runIdentity . runBBT
 
 runBBT :: (Monad m) => BBT m a -> m (a, [BasicBlock])
 runBBT m =
   fmap
     (\((a,bbs),_rw) -> (a,bbs))
-    (runStateT emptyRW (runWriterT (runReaderT id (unBB body))))
+    (runStateT (runWriterT (runReaderT (unBB body) id)) emptyRW)
   where
   -- make sure that the last block is terminated
   body = do
@@ -448,7 +472,7 @@ emitStmt stmt = do
   BB $ do
     rw <- get
     smod <- ask
-    set $! rw { rwStmts = rwStmts rw Seq.|> smod stmt }
+    put $! rw { rwStmts = rwStmts rw Seq.|> smod stmt }
   when (isTerminator (stmtInstr stmt)) terminateBasicBlock
 
 effect :: (Monad m) => Instr -> BBT m ()
@@ -475,7 +499,7 @@ label l = do
   terminateBasicBlock
   BB $ do
     rw <- get
-    set $! rw { rwLabel = Just (Named l) }
+    put $! rw { rwLabel = Just (Named l) }
 
 instance (Monad m) => IsString (BBT m a) where
   fromString l = do
@@ -486,8 +510,8 @@ terminateBasicBlock :: (Monad m) => BBT m ()
 terminateBasicBlock  = BB $ do
   rw <- get
   let (rw',bb) = rwBasicBlock rw
-  put (maybeToList bb)
-  set rw'
+  tell (maybeToList bb)
+  put rw'
 
 
 -- Type Helpers ----------------------------------------------------------------
@@ -586,11 +610,11 @@ assign :: (IsValue a, Monad m) => Ident -> BBT m (Typed a) -> BBT m (Typed Value
 assign r@(Ident name) body = do
   avoidName name
   tv <- body
-  rw <- BB get
+  rw <- BB $ get
   case Seq.viewr (rwStmts rw) of
 
     stmts Seq.:> Result _ i d m ->
-      do BB (set rw { rwStmts = stmts Seq.|> Result r i d m })
+      do BB (put rw { rwStmts = stmts Seq.|> Result r i d m })
          return (const (ValIdent r) `fmap` tv)
 
     _ -> error "assign: invalid argument"

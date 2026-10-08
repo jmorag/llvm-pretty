@@ -31,9 +31,8 @@ module Text.LLVM.Triple.Parse.ARM
 
 import qualified Data.Char as Char
 import           Control.Monad (liftM2, when)
-import qualified MonadLib as M
-import qualified MonadLib.Monads as M
 import qualified Data.List as List
+import qualified Control.Monad.Trans.State.Lazy as M
 
 import           Text.LLVM.Triple.AST
 import qualified Text.LLVM.Triple.Parse.LookupTable as Lookup
@@ -147,7 +146,7 @@ getCanonicalArchName (ArchName arch) =
   --
   -- Could probably be translated even more directly using ContT, but that feels
   -- like a bit much.
-  execState (CanonicalArchNameState 0 arch) $ do
+  flip M.evalState (CanonicalArchNameState 0 arch) $ do
     ifM (liftM2 (&&) (startsWith "aarch64") (contains "eb")) (return Nothing) $ do
       whenM (startsWith "arm64_32") $
         setOffset 8
@@ -200,14 +199,11 @@ getCanonicalArchName (ArchName arch) =
 
     changeOffset f = do
       s <- M.get
-      M.set (s { offset = f (offset s) })
+      M.put (s { offset = f (offset s) })
     addOffset n = changeOffset (n+)
     setOffset n = changeOffset (const n)
 
-    changeArch f = M.set . (\s -> s { archStr = f (archStr s) }) =<< M.get
-
-    -- Not in MonadLib...
-    execState s = fst . M.runState s
+    changeArch f = M.put . (\s -> s { archStr = f (archStr s) }) =<< M.get
 
 -- | @llvm::parseARMArch@
 --

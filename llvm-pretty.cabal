@@ -54,14 +54,15 @@ Library
                        filepath         >= 1.4,
                        parsec           >= 3,
                        pretty           >= 1.0.1,
-                       monadLib         >= 3.6.1,
                        microlens        >= 0.4,
                        microlens-th     >= 0.4,
                        microlens-platform >= 0.4,
+                       mtl,
                        -- microlens-platform provides the IxValue instance for IntMap
                        syb              >= 0.7,
                        template-haskell >= 2.7,
-                       th-abstraction   >= 0.3.1 && <0.8
+                       th-abstraction   >= 0.3.1 && <0.8,
+                       transformers
 
 Test-suite llvm-pretty-test
   Import: common
