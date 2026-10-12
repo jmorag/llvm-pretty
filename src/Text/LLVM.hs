@@ -16,6 +16,7 @@ module Text.LLVM (
   , emitGlobal
   , emitDeclare
   , emitDefine
+  , freshNameLLVM
 
     -- * Alias Introduction
   , alias
@@ -50,6 +51,10 @@ module Text.LLVM (
   , label
   , comment
   , assign
+  , freshNameBB
+  , observe
+  , effect
+  , emitStmt
 
     -- * Terminator Instructions
   , ret
