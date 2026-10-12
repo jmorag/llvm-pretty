@@ -118,8 +118,8 @@ import Control.Monad.State.Lazy
 import Control.Monad.Writer.Strict
 import Data.Char (ord)
 import Data.Functor.Identity
-import Data.Int (Int8,Int16,Int32,Int64)
-import Data.Word (Word32, Word64)
+import Data.Int (Int8, Int16, Int32, Int64)
+import Data.Word (Word8, Word16, Word32, Word64)
 import Data.Maybe (maybeToList)
 import Data.String (IsString(..))
 import qualified Data.Foldable as F
@@ -559,6 +559,21 @@ instance IsValue Int32 where
   toValue = ValInteger . toInteger
 
 instance IsValue Int64 where
+  toValue = ValInteger . toInteger
+
+instance IsValue Word where
+  toValue = ValInteger . toInteger
+
+instance IsValue Word8 where
+  toValue = ValInteger . toInteger
+
+instance IsValue Word16 where
+  toValue = ValInteger . toInteger
+
+instance IsValue Word32 where
+  toValue = ValInteger . toInteger
+
+instance IsValue Word64 where
   toValue = ValInteger . toInteger
 
 instance IsValue Float where
