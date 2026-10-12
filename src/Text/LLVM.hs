@@ -608,6 +608,16 @@ int  = toValue
 integer :: Integer -> Value
 integer  = toValue
 
+-- | Create a struct literal. NOTE: This only works for constants. If
+-- you want to create a struct in a basic block dynamically you need
+-- to do something like
+--
+-- @
+-- let undef = ty =: ValUndef
+-- field1 <- insertValue undef val1
+-- field2 <- insertValue undef val2
+-- ...
+-- @
 struct :: Bool -> [Typed Value] -> Typed Value
 struct packed tvs
   | packed    = PackedStruct (map typedType tvs) =: ValPackedStruct tvs
@@ -839,7 +849,7 @@ invoke :: (IsValue a, Monad m) =>
 invoke rty sym vs to uw = observe rty
                         $ Invoke rty (toValue sym) vs (Named to) (Named uw)
 
--- | Emit a call instruction, but don't generate a new variable for its result.
+-- | Emit a switch statement.
 switch :: (IsValue a, Monad m) => Typed a -> Ident -> [(Integer, Ident)] -> BBT m ()
 switch idx def dests = effect (Switch (toValue `fmap` idx) (Named def)
                                       (map (\(n, l) -> (n, Named l)) dests))

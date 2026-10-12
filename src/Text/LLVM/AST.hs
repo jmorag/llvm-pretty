@@ -1382,8 +1382,8 @@ data Instr' lab
 
   | InsertValue (Typed (Value' lab)) (Typed (Value' lab)) [Int32]
     {- ^ * Set the value for a member of an aggregate value:
-           the first argument is the value to insert, the second is the
-           aggreagate value to be modified.
+           the first argument is the aggreagate value to be modified, the second is the
+           value to insert.
          * Middle of basic block.
          * Returns an updated aggregate value. -}
 
