@@ -55,6 +55,7 @@ module Text.LLVM (
   , observe
   , effect
   , emitStmt
+  , RW (..)
 
     -- * Terminator Instructions
   , ret
